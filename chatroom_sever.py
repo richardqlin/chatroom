@@ -1,47 +1,37 @@
 import socket
 
-import threading
+from threading import Thread
 
-host = '0.0.0.0'
-
-port = 9999
-
-s = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-
-s.bind((host,port))
-
+s=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+s.bind(("0.0.0.0",12340))
 s.listen(5)
 
 
+connections = {}
 
-clients_dict={}
+def send_everyone(message):  
+    for client in connections:
+        connections[client].send(message.encode())
 
+def listener(conn,username):
 
-def broadcast(message):
-    for c in clients_dict:
-        print(c)
-        clients_dict[c].send(message)
-
-def handle(client,name):
-    global clients_dict
-    while 1:
+    while True:
         try:
-            message = client.recv(1024)
-            broadcast(message)
+            message = conn.recv(1024).decode()
+            data = '<'+ username +">:"+ message
+            send_everyone(data)
         except:
-            client.close()
-            del clients_dict[name]
-            break
+            send_everyone(username + ' has left the chat')
+            del connections[username]
+            return
 
 
-def receive():
-    while 1:
-        client, address = s.accept()
-        data = client.recv(1024)
-        clients_dict[data] = client
-        broadcast(data+ ' connected to the server '.encode('utf-8'))
-        thread = threading.Thread(target=handle, args = (client,data,))
-        thread.start()
+while 1:
+    conn, addr = s.accept()
+    username = conn.recv(1024).decode('utf-8')
+    connections[username] = conn
+    #send_everyone((username + ' has joined the chat'))
 
-receive()
-print('sever run')
+    temp_thread = Thread(target = listener, args=(conn,username,))
+    temp_thread.start()
+
